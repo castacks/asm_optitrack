@@ -10,6 +10,15 @@ natnet_ros2_node is a C++ executable that requires the OptiTrack NatNet SDK.
 If the SDK was not installed (``airstack setup`` not run) and the workspace
 has not been rebuilt, launching this file will raise a RuntimeError with
 instructions. Set LAUNCH_NATNET=false in .env to disable OptiTrack entirely.
+
+Server address precedence (RFC #379 §2 de-env-coupling — a stack passes the
+address as an explicit, greppable launch arg instead of ambient env):
+
+1. ``server_ip`` launch argument, when passed non-empty — always wins.
+2. Otherwise the config's ``natnet.server.server_ip``, whose shipped default is
+   ``$(env NATNET_SERVER_IP 172.31.0.200)`` — expanded by this file's env-subst
+   engine, so the legacy ``NATNET_SERVER_IP`` env var keeps working unchanged
+   for bring-ups that don't pass the arg.
 """
 
 from __future__ import annotations
@@ -136,6 +145,7 @@ def generate_launch_description() -> LaunchDescription:
     gp_origin_config_file = LaunchConfiguration('gp_origin_config_file')
     px4_params_config_file = LaunchConfiguration('px4_params_config_file')
     use_sim_time = LaunchConfiguration('use_sim_time')
+    server_ip = LaunchConfiguration('server_ip')
 
     def launch_setup(context, *_args, **_kwargs):
         cfg_path = config_file.perform(context)
@@ -157,6 +167,14 @@ def generate_launch_description() -> LaunchDescription:
             )
 
         node_params = _build_node_params(server, profile)
+
+        # De-env-coupling (see module docstring): an explicitly passed server_ip
+        # launch arg beats the config value (which itself env-substs
+        # $(env NATNET_SERVER_IP 172.31.0.200)). Empty string = not passed.
+        server_ip_override = server_ip.perform(context).strip()
+        if server_ip_override:
+            node_params['server_ip'] = server_ip_override
+
         # launch_ros / rclpy cannot infer the type of an empty-list parameter, so drop
         # any empty arrays; the node declares matching empty defaults and tracks nothing.
         node_params = {
@@ -266,6 +284,15 @@ def generate_launch_description() -> LaunchDescription:
                 'use_sim_time',
                 default_value='false',
                 description='Forwarded to MAVROS bridge launch files.',
+            ),
+            DeclareLaunchArgument(
+                'server_ip',
+                default_value='',
+                description='NatNet server (Motive / emulator) address. Non-empty '
+                'overrides the config natnet.server.server_ip, whose shipped '
+                'default is $(env NATNET_SERVER_IP 172.31.0.200) — so env keeps '
+                'working when this arg is not passed, and a stack that passes it '
+                'wins.',
             ),
             OpaqueFunction(function=launch_setup),
         ],
