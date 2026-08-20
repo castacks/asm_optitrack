@@ -1,0 +1,50 @@
+# Compose override for the optitrack test stack (RFC #379 §3, §5).
+#
+# Merged AFTER trunk's compose files, with this module cloned at
+# AirStack/modules/asm_optitrack (paths below resolve relative to THIS file):
+#
+#   cd AirStack
+#   export ISAAC_SIM_SCRIPT_NAME=modules/asm_optitrack/one_px4_pegasus_natnet.py
+#   export PX4_PARAM_SET=external-vision ISAAC_SIM_USE_STANDALONE=true
+#   COMPOSE_FILE=docker-compose.yaml:modules/asm_optitrack/test_stack/docker-compose.yaml \
+#     docker compose --profile desktop --profile isaac-sim up -d
+#
+# Values mirror trunk's overrides/isaac-optitrack-simulation.env (which stays
+# in trunk for now; docs/px4_external_vision.md documents each one).
+#
+# NOTE on the exports above: ISAAC_SIM_SCRIPT_NAME and PX4_PARAM_SET are
+# consumed at compose-INTERPOLATION time by trunk's isaac-sim service (the
+# tmux command line and the px4-params env_file selection), so they must be
+# present in the invoking environment / .env — the `environment:` entries
+# below restate them for in-container visibility but cannot substitute for
+# the exports. NATNET_SERVER_IP and LAUNCH_NATNET are genuine container env
+# and take effect from here alone.
+services:
+  isaac-sim:
+    environment:
+      # Module launch script, addressable through the symlinks
+      # `airstack module sync` places under trunk's launch_scripts/modules/.
+      # Swap for modules/asm_optitrack/multi_px4_pegasus_natnet.py (and raise
+      # NUM_ROBOTS + add matching natnet_config.yaml bodies) for multi-robot.
+      - ISAAC_SIM_SCRIPT_NAME=modules/asm_optitrack/one_px4_pegasus_natnet.py
+      - ISAAC_SIM_USE_STANDALONE=true
+      # PX4 EKF2 external-vision fusion: selects trunk's
+      # simulation/isaac-sim/docker/px4-params/external-vision.env (GPS/baro/
+      # range aiding OFF — mocap is the only position source).
+      - PX4_PARAM_SET=external-vision
+      - PLAY_SIM_ON_START=true
+    volumes:
+      # The emulator Kit extension (same mount as ../compose.fragment.yaml,
+      # repeated here because compose fragments are not auto-merged into
+      # arbitrary COMPOSE_FILE chains yet).
+      - ../exts/optitrack.natnet.emulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator/:rw
+  robot-desktop:
+    environment:
+      # The emulator holds the isaac-sim container's static IP on
+      # airstack_network.
+      - NATNET_SERVER_IP=172.31.0.200
+      # INTERIM: trunk's perception_bringup still gates natnet_ros2 behind
+      # LAUNCH_NATNET, and the container autolaunch runs trunk's
+      # robot.launch.xml (not ./launch/stack.launch.xml). Goes away with the
+      # trunk-removal PR, when stacks become the launch entry point.
+      - LAUNCH_NATNET=true

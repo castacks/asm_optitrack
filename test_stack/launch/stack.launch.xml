@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!--
+  Test-stack entry point for the optitrack module (RFC #379 §3, §5).
+
+  INTERIM FORM (pre-stacks): reference stack folders do not exist in trunk
+  yet, so this file is a flat wrapper around trunk's monolithic bringup plus
+  this module's one include, rather than a flat list of module includes.
+  When trunk ships reference stacks, replace the autonomy_bringup include
+  with a copy of the relevant reference stack.launch.xml.
+
+  The natnet_ros2 include is UNCONDITIONAL — this is the RFC's answer to
+  trunk's LAUNCH_NATNET env toggle: a stack that means "OptiTrack topology"
+  includes the module, full stop; there is no env gate to grep for. The
+  NatNet server address is wired here as an explicit launch arg (declared by
+  natnet_ros2.launch.py; when the arg is omitted the module's config default
+  $(env NATNET_SERVER_IP 172.31.0.200) applies, so legacy env-driven
+  bring-ups keep working).
+
+  CAVEAT while trunk still carries its own LAUNCH_NATNET gate inside
+  perception_bringup: run THIS file with LAUNCH_NATNET unset/false, or
+  natnet_ros2 launches twice (once via the wrapped bringup's gate, once via
+  the explicit include below). The gate disappears with the trunk-removal PR.
+-->
+<launch>
+  <include file="$(find-pkg-share autonomy_bringup)/launch/robot.launch.xml"/>
+  <group>
+    <push-ros-namespace namespace="$(env ROBOT_NAME)"/>
+    <include file="$(find-pkg-share natnet_ros2)/launch/natnet_ros2.launch.py">
+      <arg name="server_ip" value="$(env NATNET_SERVER_IP 172.31.0.200)"/>
+    </include>
+  </group>
+</launch>

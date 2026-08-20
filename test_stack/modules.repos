@@ -1,0 +1,11 @@
+# vcstool repos file for this module's test stack (RFC #379 §3, §5).
+# Pins are tags/commits — never branches. The top-level airstack_compat key is
+# ignored by vcstool; AirStack tooling reads it as the trunk range this stack
+# was tested against.
+airstack_compat: ">=0.19.0-alpha.18 <0.20.0"
+repositories:
+  asm_optitrack:
+    type: git
+    # Placeholder — repo has no remote yet; update when pushed.
+    url: git@github.com:castacks/asm_optitrack.git
+    version: v0.1.0
