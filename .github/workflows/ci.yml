@@ -1,0 +1,55 @@
+name: module-ci
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly canary against trunk develop (Mondays 06:00 UTC) — surfaces trunk
+    # drift the week it lands rather than at the next release.
+    - cron: '0 6 * * 1'
+
+jobs:
+  # Guard: the proprietary OptiTrack NatNet SDK is downloaded host-side by
+  # hooks.host_setup and must NEVER be tracked in git (EULA forbids
+  # redistribution). Fails fast, before any GPU runner is spawned.
+  sdk-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse tracked NatNet SDK files
+        run: |
+          if git ls-files | grep -E 'libNatNet|NatNetSDK'; then
+            echo "::error::Proprietary NatNet SDK files are tracked in git. Remove them; the SDK is fetched by natnet_ros2/scripts/download-natnet-sdk.sh at setup time."
+            exit 1
+          fi
+          echo "SDK guard clean: no NatNet SDK files tracked."
+
+  system-tests:
+    if: github.event_name != 'schedule'
+    needs: sdk-guard
+    # TODO: re-pin both refs to a release tag (e.g. @v0.19.0) once the
+    # reusable workflow lands on a released trunk (RFC #379 §5).
+    uses: castacks/AirStack/.github/workflows/module-system-tests.yml@feature/rfc-modular-airstack
+    with:
+      airstack_ref: feature/rfc-modular-airstack
+      marks: "build_packages or integration or liveliness or optitrack"
+      sim: isaacsim
+      module_tests_dir: tests
+    secrets: inherit
+
+  # Weekly canary: same suite against trunk develop, so breakage from trunk
+  # surfaces the week it lands. TODO-until-merge: develop does not carry the
+  # module CLI / reusable workflow yet — this job is a stub that must stay
+  # pointed at the feature branch until the RFC #379 tooling merges to
+  # develop; flip airstack_ref (and the @ref) to develop then.
+  canary:
+    if: github.event_name == 'schedule'
+    needs: sdk-guard
+    uses: castacks/AirStack/.github/workflows/module-system-tests.yml@feature/rfc-modular-airstack
+    with:
+      # TODO(post-merge): airstack_ref: develop
+      airstack_ref: feature/rfc-modular-airstack
+      marks: "build_packages or integration or liveliness or optitrack"
+      sim: isaacsim
+      module_tests_dir: tests
+    secrets: inherit
