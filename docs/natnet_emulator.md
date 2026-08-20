@@ -48,17 +48,26 @@ The easiest way to start is with the provided Pegasus launch scripts. Set
 
 ```bash
 # Single drone, NatNet emulator + PX4 flying on external vision
-airstack up --env-file overrides/isaac-optitrack-simulation.env
+# (the module's test_stack is the activation path — the old trunk
+#  overrides/isaac-optitrack-simulation.env and LAUNCH_NATNET are gone)
+ISAAC_SIM_SCRIPT_NAME=modules/asm_optitrack/one_px4_pegasus_natnet.py \
+PX4_PARAM_SET=external-vision \
+AIRSTACK_STACK_DIR=/root/AirStack/modules/asm_optitrack/test_stack \
+  airstack up --sim isaac --robots 1 --play --wait
 ```
 
-`overrides/isaac-optitrack-simulation.env` sets:
+Key settings:
 
 | Variable | Value |
 |---|---|
-| `NUM_ROBOTS` | `1` |
-| `LAUNCH_NATNET` | `true` |
+| `AIRSTACK_STACK_DIR` | the module's `test_stack/` (includes natnet_ros2 unconditionally) |
 | `PX4_PARAM_SET` | `external-vision` |
-| `ISAAC_SIM_SCRIPT_NAME` | `example_one_px4_pegasus_natnet_launch_script.py` |
+| `ISAAC_SIM_SCRIPT_NAME` | `modules/asm_optitrack/one_px4_pegasus_natnet.py` |
+
+The emulator extension loads from the module checkout via the compose
+fragment's Kit exts mount (`enable_extension` + a `sys.path` fallback in the
+launch scripts) — it does **not** rely on being pip-installed into Isaac's
+python, so trunk's image needs no emulator baked in.
 
 `PX4_PARAM_SET` selects `simulation/isaac-sim/docker/px4-params/<name>.env`, whose
 `PX4_PARAM_*` entries PX4's rcS applies at boot. It defaults to `default`, which is empty,

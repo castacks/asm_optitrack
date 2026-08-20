@@ -16,10 +16,9 @@
   $(env NATNET_SERVER_IP 172.31.0.200) applies, so legacy env-driven
   bring-ups keep working).
 
-  CAVEAT while trunk still carries its own LAUNCH_NATNET gate inside
-  perception_bringup: run THIS file with LAUNCH_NATNET unset/false, or
-  natnet_ros2 launches twice (once via the wrapped bringup's gate, once via
-  the explicit include below). The gate disappears with the trunk-removal PR.
+  (Trunk's perception_bringup LAUNCH_NATNET gate was removed with the
+  trunk-removal commit — this include is the only activation path; the env
+  var is inert in trunk and warns for one release.)
 -->
 <launch>
   <include file="$(find-pkg-share autonomy_bringup)/launch/robot.launch.xml"/>

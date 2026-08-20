@@ -8,7 +8,7 @@ a Motive-compatible NatNet server that always streams:
  - ``Drone`` (id 1) from the Pegasus ``body`` prim under ``/World/base_link``
  - ``Target`` (id 100) from a static ``/World/target`` prim
 
-Pair with robot-side ``LAUNCH_NATNET=true`` and a matching ``natnet_config.yaml``
+Pair with a stack that includes natnet_ros2 (see test_stack/) and a matching ``natnet_config.yaml``
 profile. To consume the target on the robot, add a Target body to the profile
 (see the commented scaffolding in ``natnet_config.yaml``).
 

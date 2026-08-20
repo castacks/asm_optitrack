@@ -55,7 +55,8 @@ Then bring up the simulated mocap stack and fly it — see
 ```bash
 ISAAC_SIM_USE_STANDALONE=true \
 ISAAC_SIM_SCRIPT_NAME=modules/asm_optitrack/one_px4_pegasus_natnet.py \
-PX4_PARAM_SET=external-vision LAUNCH_NATNET=true \
+PX4_PARAM_SET=external-vision \
+AIRSTACK_STACK_DIR=/root/AirStack/modules/asm_optitrack/test_stack \
   airstack up --sim isaac --robots 1 --play --wait
 airstack test -m optitrack --sim isaacsim --num-robots 1 -v
 ```
