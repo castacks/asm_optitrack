@@ -35,6 +35,11 @@ jobs:
       marks: "build_packages or integration or liveliness or optitrack"
       sim: isaacsim
       module_tests_dir: tests
+      # castacks CI explicitly accepts the OptiTrack NatNet SDK EULA
+      # (https://optitrack.com/about/legal/eula) so the host_setup hook can
+      # install the SDK non-interactively; without it the hook soft-skips and
+      # the C++ client is not built (integration/optitrack marks would fail).
+      hook_env: "NATNET_ACCEPT_LICENSE=1"
     secrets: inherit
 
   # Weekly canary: same suite against trunk develop, so breakage from trunk
@@ -52,4 +57,9 @@ jobs:
       marks: "build_packages or integration or liveliness or optitrack"
       sim: isaacsim
       module_tests_dir: tests
+      # castacks CI explicitly accepts the OptiTrack NatNet SDK EULA
+      # (https://optitrack.com/about/legal/eula) so the host_setup hook can
+      # install the SDK non-interactively; without it the hook soft-skips and
+      # the C++ client is not built (integration/optitrack marks would fail).
+      hook_env: "NATNET_ACCEPT_LICENSE=1"
     secrets: inherit

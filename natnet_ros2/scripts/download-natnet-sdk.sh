@@ -75,8 +75,8 @@ This installer will download the SDK into the natnet_ros2 module tree:
   - lib/libNatNet.so
   - include/natnet/NatNet*
 
-If you do not plan to use OptiTrack, you can skip this step by pressing 'N' or by running:
-  airstack setup --no-natnet 
+If you do not plan to use OptiTrack, press 'N' (or run module sync with
+--no-hooks); natnet_ros2 builds without the SDK (Python nodes only).
 
 ===============================================================================
 EOF
@@ -146,6 +146,16 @@ main() {
 
     if [[ "$auto_accept" == "true" ]]; then
         info "NATNET_ACCEPT_LICENSE=1 / --accept-license set — accepting license non-interactively"
+    elif [[ ! -t 0 ]]; then
+        # Hook contract (module.yaml hooks.host_setup): idempotent and
+        # non-interactive. A proprietary EULA must not be auto-accepted by
+        # tooling, and natnet_ros2 builds without the SDK (CMake degrades to
+        # the Python-only install) — so soft-skip with instructions.
+        warn "Non-interactive run without license acceptance — skipping the NatNet SDK download."
+        warn "natnet_ros2 will build WITHOUT the C++ NatNet client. To install the SDK,"
+        warn "accept the OptiTrack EULA (https://optitrack.com/about/legal/eula) by running:"
+        warn "  NATNET_ACCEPT_LICENSE=1 ${BASH_SOURCE[0]}"
+        exit 0
     else
         read -r -p "Accept the OptiTrack NatNet SDK license and download the SDK now? [Y/n] " reply
         reply="${reply:-y}"
