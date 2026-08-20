@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.vscode/
+*.log
+
+# The proprietary NatNet SDK is additionally ignored by natnet_ros2/.gitignore
+# (lib/libNatNet.so, include/natnet/) — it is downloaded by hooks.host_setup
+# and must never be tracked. CI enforces this (see .github/workflows/ci.yml).

@@ -1,0 +1,19 @@
+# Compose override fragment for the optitrack module (RFC #379 §2).
+#
+# Merged after trunk's docker-compose.yaml by `airstack module sync`
+# (tools/module_overlay.py rewrites relative host paths against this file's
+# directory into the generated .airstack/generated/docker-compose.modules.yaml),
+# e.g. with the module cloned at AirStack/modules/asm_optitrack.
+#
+# Declaring a fragment makes it the source of truth for this module's mounts —
+# the overlay's exts/ auto-mount is skipped to avoid double mounts — so the
+# emulator extension mount lives here explicitly.
+#
+# Adds one volume: the optitrack.natnet.emulator Kit extension into the shared
+# exts dir that trunk's isaac-sim command already passes to Kit via
+# --ext-folder. This is the exact mount trunk carried for this extension
+# pre-extraction (simulation/isaac-sim/docker/docker-compose.yaml).
+services:
+  isaac-sim:
+    volumes:
+      - ./exts/optitrack.natnet.emulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator/:rw

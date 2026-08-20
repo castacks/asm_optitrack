@@ -1,0 +1,36 @@
+# AirStack module manifest — deps, identity, and test metadata only; no wiring
+# (RFC #379 §2). Validated against trunk's common/module_schema/module.schema.json
+# by tools/validate_module.py.
+name: optitrack
+description: OptiTrack NatNet mocap integration — natnet_ros2 client + PX4 external-vision fusion bridges on the robot, and the Motive-compatible NatNet server emulator for Isaac Sim
+# TODO(governance): placeholder address — replace with the natnet_ros2 /
+# NatNet-emulator maintainer's own email before registration (RFC #379 §8).
+maintainer: maintainers@theairlab.org
+license: MIT
+type: ros_package                # natnet_ros2 is the colcon package; the Kit
+                                 # emulator extension rides along under exts/
+airstack_compat: ">=0.19.0-alpha.18 <0.20.0"   # semver range vs trunk .env VERSION
+targets: [robot, isaac-sim]      # client + bridges on robot; emulator + launch scripts on isaac-sim
+
+deps: {apt: [], pip: []}         # rosdep keys live in natnet_ros2/package.xml. The
+                                 # NatNet SDK is deliberately NOT a dep tier: it is
+                                 # proprietary, fetched host-side by hooks.host_setup,
+                                 # and never baked into images or tracked in git.
+dockerfile: null                 # tier 2: not needed — no image-level deps
+overlay_image: null              # tier 3: not needed
+compose: compose.fragment.yaml   # mounts exts/optitrack.natnet.emulator into the Kit shared exts dir
+
+assets: []                       # no large assets; the SDK comes via hooks.host_setup
+docs: {dir: docs/}               # px4_external_vision.md + natnet_emulator.md
+foxglove: null
+
+hooks:
+  # Downloads the proprietary OptiTrack NatNet SDK into natnet_ros2/lib/ and
+  # natnet_ros2/include/natnet/ (both gitignored). Idempotent, no sudo, writes
+  # only inside the module checkout. Interactive license prompt unless
+  # NATNET_ACCEPT_LICENSE=1 or --accept-license is passed (CI mode).
+  host_setup: natnet_ros2/scripts/download-natnet-sdk.sh
+
+tests:
+  packages: [natnet_ros2, optitrack.natnet.emulator]   # co-located test/ dirs
+  marks: [integration, liveliness, optitrack]
