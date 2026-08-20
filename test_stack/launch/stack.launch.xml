@@ -1,31 +1,98 @@
-<?xml version="1.0"?>
 <!--
-  Test-stack entry point for the optitrack module (RFC #379 §3, §5).
+  asm_optitrack test_stack : the reference full_default topology + OptiTrack.
 
-  INTERIM FORM (pre-stacks): reference stack folders do not exist in trunk
-  yet, so this file is a flat wrapper around trunk's monolithic bringup plus
-  this module's one include, rather than a flat list of module includes.
-  When trunk ships reference stacks, replace the autonomy_bringup include
-  with a copy of the relevant reference stack.launch.xml.
+  Body copied from trunk stacks/full_default/launch/stack.launch.xml (P5-E2
+  flatten form) with the natnet_ros2 include appended — the RFC answer to the
+  old LAUNCH_NATNET env toggle: a stack that means "OptiTrack topology"
+  includes the module, full stop.
 
-  The natnet_ros2 include is UNCONDITIONAL — this is the RFC's answer to
-  trunk's LAUNCH_NATNET env toggle: a stack that means "OptiTrack topology"
-  includes the module, full stop; there is no env gate to grep for. The
-  NatNet server address is wired here as an explicit launch arg (declared by
-  natnet_ros2.launch.py; when the arg is omitted the module's config default
-  $(env NATNET_SERVER_IP 172.31.0.200) applies, so legacy env-driven
-  bring-ups keep working).
+  IMPORTANT: a stack entry file must NEVER include
+  autonomy_bringup/launch/robot.launch.xml — robot.launch.xml is the
+  DISPATCHER that includes THIS file when AIRSTACK_STACK_DIR is set; wrapping
+  it recurses infinitely (robot_1/robot_1/... namespace explosion). The shared
+  preamble (ROBOT_NAME namespace push, use_sim_time, robot_state_publisher,
+  world/map TF) already ran in the dispatcher, so includes below are already
+  namespaced.
 
-  (Trunk's perception_bringup LAUNCH_NATNET gate was removed with the
-  trunk-removal commit — this include is the only activation path; the env
-  var is inert in trunk and warns for one release.)
+  Run (see test_stack/README.md):
+    AIRSTACK_STACK_DIR=/root/AirStack/modules/asm_optitrack/test_stack
 -->
 <launch>
-  <include file="$(find-pkg-share autonomy_bringup)/launch/robot.launch.xml"/>
-  <group>
-    <push-ros-namespace namespace="$(env ROBOT_NAME)"/>
-    <include file="$(find-pkg-share natnet_ros2)/launch/natnet_ros2.launch.py">
-      <arg name="server_ip" value="$(env NATNET_SERVER_IP 172.31.0.200)"/>
-    </include>
-  </group>
+
+  <!-- ── Wrapped layers (flatten in E3) ─────────────────────────────────── -->
+
+  <!-- Interface (MAVROS/PX4 hardware interface + safety) -->
+  <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.py" />
+
+  <!-- Sensors -->
+  <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
+
+  <!-- Perception (stereo disparity + point cloud; macvo off by default; OptiTrack arrives via the asm_optitrack module) -->
+  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
+
+  <!-- ── Local layer, flat (module launch files; canonical defaults) ────── -->
+
+  <!-- Takeoff/Land task server: odometry in from odometry_conversion;
+       trajectory_override + mode out to the trajectory controller;
+       arming/extended state from the interface; actions at tasks/{takeoff,land} -->
+  <include file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.launch.xml" />
+
+  <!-- Fixed-trajectory task server: trajectory_override + mode out to the
+       trajectory controller; action at tasks/fixed_trajectory -->
+  <include file="$(find-pkg-share trajectory_controller)/launch/fixed_trajectory_task.launch.xml" />
+
+  <!-- DROAN local planner (GPU): disparity in from stereo_image_proc (canonical),
+       global_plan in from the global planner, look_ahead/tracking_point in from
+       the trajectory controller, trajectory_segment_to_add out to it;
+       navigate action at tasks/navigate -->
+  <include file="$(find-pkg-share droan_gl)/launch/droan_gl.launch.xml" />
+
+  <!-- Trajectory controller: odometry in from odometry_conversion; serves the
+       trajectory_controller/* topic group (override, segment, mode, tracking
+       point, look_ahead) by relative name in its namespace -->
+  <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.launch.xml" />
+
+  <!-- PID controller: odometry in from odometry_conversion, tracking_point in
+       from the trajectory controller; attitude/thrust command out to the
+       interface (cmd_roll_pitch_yawrate_thrust) -->
+  <include file="$(find-pkg-share pid_controller)/launch/pid_controller.launch.xml" />
+
+  <!-- ── Wrapped layers (flatten in E3) ─────────────────────────────────── -->
+
+  <!-- Global (global planner + world model) -->
+  <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
+
+  <!-- Behavior (behavior tree + safety monitor) -->
+  <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
+
+  <!-- Logging -->
+  <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
+
+  <!-- Role-full extras (from robot.launch.xml's full group) -->
+
+  <!-- Domain Bridge (GCS) -->
+  <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
+    <arg name="config_file"
+      value="$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml" />
+    <!-- 0 = robot.launch.xml's gcs_domain default -->
+    <arg name="args" value="gcs_domain:=0" />
+  </include>
+
+  <!-- Gossip coordination layer -->
+  <include file="$(find-pkg-share coordination_bringup)/launch/gossip.launch.xml">
+    <!-- 99 / 1.0 = robot.launch.xml's gossip_domain / gossip_publish_rate defaults -->
+    <arg name="gossip_domain" value="99" />
+    <arg name="publish_rate" value="1.0" />
+  </include>
+
+
+  <!-- ── OptiTrack (this module) ─────────────────────────────────────────── -->
+
+  <!-- NatNet client + EV-fusion bridges: mocap pose in from the NatNet server
+       (emulator in sim, Motive on hardware); vision_pose out to MAVROS/EKF2.
+       server_ip arg wins over the config's env default when passed. -->
+  <include file="$(find-pkg-share natnet_ros2)/launch/natnet_ros2.launch.py">
+    <arg name="server_ip" value="$(env NATNET_SERVER_IP 172.31.0.200)"/>
+  </include>
+
 </launch>
