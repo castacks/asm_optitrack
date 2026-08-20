@@ -11,6 +11,13 @@ If the SDK was not installed (``airstack setup`` not run) and the workspace
 has not been rebuilt, launching this file will raise a RuntimeError with
 instructions. Set LAUNCH_NATNET=false in .env to disable OptiTrack entirely.
 
+The config argument is ``natnet_config_file`` — PREFIXED because ROS 2 launch
+configurations are global across includes in one launch context: a stack that
+included trunk's dds_router/gossip launch first (which sets a generic
+``config_file``) silently fed the gossip YAML to this file when the argument
+was still named ``config_file`` (zero tracked bodies, no error). Prefix your
+launch args (write-launch-file skill).
+
 Server address precedence (RFC #379 §2 de-env-coupling — a stack passes the
 address as an explicit, greppable launch arg instead of ambient env):
 
@@ -140,7 +147,7 @@ def generate_launch_description() -> LaunchDescription:
     default_gp_origin_yaml = os.path.join(pkg_share, 'config', 'mavros_gp_origin.yaml')
     default_px4_params_yaml = os.path.join(pkg_share, 'config', 'px4_params.yaml')
 
-    config_file = LaunchConfiguration('config_file')
+    config_file = LaunchConfiguration('natnet_config_file')
     vision_pose_config_file = LaunchConfiguration('vision_pose_config_file')
     gp_origin_config_file = LaunchConfiguration('gp_origin_config_file')
     px4_params_config_file = LaunchConfiguration('px4_params_config_file')
@@ -260,7 +267,7 @@ def generate_launch_description() -> LaunchDescription:
     return LaunchDescription(
         [
             DeclareLaunchArgument(
-                'config_file',
+                'natnet_config_file',
                 default_value=default_natnet_yaml,
                 description='NatNet config YAML (natnet: server + per-robot profiles). '
                 'The robot profile selected by ROBOT_NAME drives bodies + MAVROS include.',
