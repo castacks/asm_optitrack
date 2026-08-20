@@ -13,6 +13,7 @@ isaac-sim image isn't built locally.
 import os
 import re
 import time
+from pathlib import Path
 
 import pytest
 
@@ -48,16 +49,28 @@ pytestmark = pytest.mark.optitrack
 # switches PX4 SITL's EKF2 to mocap external vision and turns GPS, baro and range aiding
 # OFF, so the OptiTrack stream is the vehicle's ONLY position source. PX4's rcS applies
 # those PX4_PARAM_* entries at boot; they mirror the deployment-validated set in
-# robot/ros_ws/src/perception/natnet_ros2/config/px4_params.yaml.
+# this module's natnet_ros2/config/px4_params.yaml.
 #
 # Without it EKF2_EV_CTRL is 0, PX4 silently discards the vision and flies on sim GPS —
 # which is what made the previous version of this module's fusion check vacuous.
+# The Pegasus NatNet launch script now lives in this module; `airstack module
+# sync` symlinks module launch scripts under trunk's launch_scripts/modules/
+# <checkout-dir-name>/, which is how ISAAC_SIM_SCRIPT_NAME addresses them.
+# Derived from this file's location so it holds for any checkout name (e.g.
+# modules/asm_optitrack locally, module-under-test in trunk's reusable CI
+# workflow). Override with NATNET_ISAAC_SCRIPT if the layout differs.
+_MODULE_CHECKOUT_NAME = Path(__file__).resolve().parents[2].name
+_ISAAC_SCRIPT = os.environ.get(
+    "NATNET_ISAAC_SCRIPT",
+    f"modules/{_MODULE_CHECKOUT_NAME}/one_px4_pegasus_natnet.py",
+)
+
 _E2E_ENV = {
     "NUM_ROBOTS": "1",
     "COMPOSE_PROFILES": "desktop,isaac-sim",
     "AUTOLAUNCH": "true",
     "ISAAC_SIM_USE_STANDALONE": "true",
-    "ISAAC_SIM_SCRIPT_NAME": "example_one_px4_pegasus_natnet_launch_script.py",
+    "ISAAC_SIM_SCRIPT_NAME": _ISAAC_SCRIPT,
     "PLAY_SIM_ON_START": "true",
     "LAUNCH_NATNET": "true",
     # EKF2 external-vision (mocap) configuration — see comment above. Selects

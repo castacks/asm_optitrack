@@ -25,16 +25,20 @@ import time
 
 import pytest
 
+from pathlib import Path
+
 from conftest import (  # noqa: E402 — pytest adds tests/ to sys.path
     docker_exec,
-    repo_path,
     ros2_env,
     sample_hz,
     wait_for_first_message,
 )
 
 # Emulator is not pip-installed on the host; add extension root + test helpers.
-_EXT_ROOT = repo_path("simulation/isaac-sim/extensions/optitrack.natnet.emulator")
+# Module-relative (the extension lives in this repo under exts/), so the path
+# holds both standalone and when trunk's CI appends this dir via
+# module_tests_dir — trunk's copy of the extension no longer exists.
+_EXT_ROOT = Path(__file__).resolve().parents[3] / "exts" / "optitrack.natnet.emulator"
 for _path in (_EXT_ROOT, _EXT_ROOT / "test"):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
