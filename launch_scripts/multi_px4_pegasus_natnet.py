@@ -30,7 +30,19 @@ import sys
 
 import carb
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# TOOLING GAP (same as the asm_dfm2_disturbances pilot): modules have no
+# blessed way to import trunk's shared launch-script infrastructure
+# (pegasus_app). The isaac-sim container mounts the AirStack checkout at
+# /isaac-sim/AirStack, so we append its launch_scripts dir to sys.path
+# (override with AIRSTACK_LAUNCH_SCRIPTS_DIR for local runs;
+# tools/module_overlay.py exports it in the generated compose override).
+_TRUNK_LAUNCH_SCRIPTS = os.environ.get(
+    "AIRSTACK_LAUNCH_SCRIPTS_DIR",
+    "/isaac-sim/AirStack/simulation/isaac-sim/launch_scripts",
+)
+if _TRUNK_LAUNCH_SCRIPTS not in sys.path:
+    sys.path.insert(0, _TRUNK_LAUNCH_SCRIPTS)
+
 from pegasus_app import create_simulation_app
 
 # Must be created before any omni/pegasus imports.
@@ -39,11 +51,22 @@ simulation_app = create_simulation_app()
 from pegasus.simulator.params import SIMULATION_ENVIRONMENTS  # noqa: E402
 from pegasus_app import PegasusApp, row_spawn_configs  # noqa: E402
 
-# Register the emulator extension with Kit before importing from it.
-# See docs/simulation/isaac_sim/natnet_emulator.md.
+# Register the emulator extension with Kit before importing from it (the
+# module's compose fragment mounts exts/optitrack.natnet.emulator into the Kit
+# shared exts dir already passed via --ext-folder). Fall back to a direct
+# sys.path import when the mount is absent (e.g. running outside the
+# container). realpath: `airstack module sync` addresses this script through a
+# symlink under trunk's launch_scripts/modules/<name>/, so resolve back to the
+# module checkout first. See docs/natnet_emulator.md.
 from isaacsim.core.utils.extensions import enable_extension  # noqa: E402
 
-enable_extension("optitrack.natnet.emulator")
+_MODULE_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+try:
+    enable_extension("optitrack.natnet.emulator")
+    import optitrack.natnet.emulator  # noqa: F401
+except Exception:
+    sys.path.insert(0, os.path.join(_MODULE_ROOT, "exts", "optitrack.natnet.emulator"))
+    import optitrack.natnet.emulator  # noqa: F401
 
 from optitrack.natnet.emulator.isaac import (  # noqa: E402
     DEFAULT_TARGET_PATH,
