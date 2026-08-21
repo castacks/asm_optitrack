@@ -1,34 +1,39 @@
 <!--
   asm_optitrack test_stack : the reference full_default topology + OptiTrack.
-
-  Body copied from trunk stacks/full_default/launch/stack.launch.xml (P5-E2
-  flatten form) with the natnet_ros2 include appended — the RFC answer to the
-  old LAUNCH_NATNET env toggle: a stack that means "OptiTrack topology"
-  includes the module, full stop.
-
-  IMPORTANT: a stack entry file must NEVER include
-  autonomy_bringup/launch/robot.launch.xml — robot.launch.xml is the
-  DISPATCHER that includes THIS file when AIRSTACK_STACK_DIR is set; wrapping
-  it recurses infinitely (robot_1/robot_1/... namespace explosion). The shared
-  preamble (ROBOT_NAME namespace push, use_sim_time, robot_state_publisher,
-  world/map TF) already ran in the dispatcher, so includes below are already
-  namespaced.
-
-  Run (see test_stack/README.md):
-    AIRSTACK_STACK_DIR=/root/AirStack/modules/asm_optitrack/test_stack
+  Body mirrors trunk stacks/full_default/launch/stack.launch.xml (post
+  AUTONOMY_ROLE removal — fully flattened) with the natnet_ros2 include
+  appended. NEVER include autonomy_bringup/robot.launch.xml here (dispatcher
+  recursion). Run: AIRSTACK_STACK_DIR=/root/AirStack/modules/asm_optitrack/test_stack
 -->
 <launch>
 
-  <!-- ── Wrapped layers (flatten in E3) ─────────────────────────────────── -->
+  <!-- ── Interface (wrapped by design — see header) ──────────────────────── -->
 
   <!-- Interface (MAVROS/PX4 hardware interface + safety) -->
   <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.py" />
 
-  <!-- Sensors -->
-  <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
+  <!-- ── Sensors, flat ───────────────────────────────────────────────────── -->
 
-  <!-- Perception (stereo disparity + point cloud; macvo off by default; OptiTrack arrives via the asm_optitrack module) -->
-  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
+  <!-- LiDAR near-range filter: raw ouster cloud in, filtered cloud out
+       (canonical defaults, endpoints are node parameters). The namespace
+       group keeps the legacy node path /$ROBOT_NAME/sensors/... -->
+  <group>
+    <push-ros-namespace namespace="sensors" />
+    <include file="$(find-pkg-share lidar_point_cloud_filter)/launch/lidar_point_cloud_filter.launch.xml" />
+  </group>
+
+  <!-- ── Perception, flat ────────────────────────────────────────────────── -->
+
+  <!-- Stereo disparity + point cloud (stereo_image_proc pair): rectified
+       stereo pair in from sensors/front_stereo (canonical); disparity and
+       point_cloud out under perception/stereo_image_proc. (MAC-VO comes via
+       the asm_macvo module — see stacks/full_macvo; OptiTrack via the
+       asm_optitrack module.) -->
+  <include file="$(find-pkg-share perception_bringup)/launch/stereo_image_proc.launch.xml" />
+
+  <!-- Topic keepalive: silently subscribes Isaac Sim's on-demand publishers
+       so they keep publishing with rviz off; no topic endpoints declared -->
+  <include file="$(find-pkg-share perception_bringup)/launch/topic_keepalive.launch.xml" />
 
   <!-- ── Local layer, flat (module launch files; canonical defaults) ────── -->
 
@@ -57,40 +62,53 @@
        interface (cmd_roll_pitch_yawrate_thrust) -->
   <include file="$(find-pkg-share pid_controller)/launch/pid_controller.launch.xml" />
 
-  <!-- ── Wrapped layers (flatten in E3) ─────────────────────────────────── -->
+  <!-- ── Global, flat ────────────────────────────────────────────────────── -->
 
-  <!-- Global (global planner + world model) -->
-  <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
+  <!-- Global world model: VDB occupancy map; filtered LiDAR cloud in, map
+       visualization out (topics live in the params YAML — cross-package
+       config owned by global_bringup, selected here). NOTE: 'config' is the
+       arg name the vendored vdb_mapping_ros2 launch declares. -->
+  <include file="$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py">
+    <arg name="config" value="$(find-pkg-share global_bringup)/config/vdb_params.yaml" />
+  </include>
 
-  <!-- Behavior (behavior tree + safety monitor) -->
-  <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
+  <!-- Global planner: random walk. vdb map visualization + odometry in;
+       global_plan out; navigate/exploration actions under tasks/*. The node
+       self-names random_walk_node at the robot root (no namespace push).
+       Swapping the global planner = replacing this include; the alternative
+       trunk planners (exploration) ship no canonical
+       module launch yet — write one in their package first. -->
+  <include file="$(find-pkg-share random_walk_planner)/launch/random_walk_planner.launch.xml" />
 
-  <!-- Logging -->
+  <!-- ── Behavior, flat ──────────────────────────────────────────────────── -->
+
+  <!-- Safety monitor: odometry watchdog (state_estimate in from
+       odometry_conversion); trajectory mode out to the trajectory controller
+       on safety events -->
+  <include file="$(find-pkg-share drone_safety_monitor)/launch/drone_safety_monitor.launch.xml" />
+
+  <!-- ── Logging (already a single self-contained module — see header) ───── -->
   <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
 
-  <!-- Role-full extras (from robot.launch.xml's full group) -->
+  <!-- ── Cross-domain extras (formerly robot.launch.xml's full-role group) ─ -->
 
   <!-- Domain Bridge (GCS) -->
   <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
-    <arg name="config_file"
-      value="$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml" />
+    <arg name="dds_router_config_file"
+      value="$(find-pkg-share autonomy_bringup)/config/dds_router.yaml" />
     <!-- 0 = robot.launch.xml's gcs_domain default -->
-    <arg name="args" value="gcs_domain:=0" />
+    <arg name="dds_router_args" value="gcs_domain:=0" />
   </include>
 
   <!-- Gossip coordination layer -->
   <include file="$(find-pkg-share coordination_bringup)/launch/gossip.launch.xml">
     <!-- 99 / 1.0 = robot.launch.xml's gossip_domain / gossip_publish_rate defaults -->
     <arg name="gossip_domain" value="99" />
-    <arg name="publish_rate" value="1.0" />
+    <arg name="gossip_publish_rate" value="1.0" />
   </include>
 
 
   <!-- ── OptiTrack (this module) ─────────────────────────────────────────── -->
-
-  <!-- NatNet client + EV-fusion bridges: mocap pose in from the NatNet server
-       (emulator in sim, Motive on hardware); vision_pose out to MAVROS/EKF2.
-       server_ip arg wins over the config's env default when passed. -->
   <include file="$(find-pkg-share natnet_ros2)/launch/natnet_ros2.launch.py">
     <arg name="server_ip" value="$(env NATNET_SERVER_IP 172.31.0.200)"/>
   </include>
