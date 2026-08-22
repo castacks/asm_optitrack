@@ -77,8 +77,9 @@ the arg wins when passed) at the Motive host and see
 CI runs these through trunk's reusable `module-system-tests.yml` (the module
 repo copies no test infrastructure); a weekly canary tracks trunk drift.
 
-## Maintainer
+## Maintainer / license
 
-`module.yaml` currently lists `maintainers@theairlab.org` as a **placeholder**
-— to be replaced with the natnet/emulator maintainer's address before
-registration (RFC #379 §8 requires a named person).
+Maintainer: Andrew Jong — <ajong@andrew.cmu.edu> (RFC #379 §8).
+Licensed under the BSD 3-Clause Clear License (SPDX: BSD-3-Clause-Clear) —
+see `LICENSE`. The proprietary OptiTrack NatNet SDK is fetched host-side and
+is never tracked in this repo; it remains under OptiTrack's own license terms.

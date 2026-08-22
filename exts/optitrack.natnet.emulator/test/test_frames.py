@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Pure pose->frame builder tests (no USD, no Kit)."""
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """
 ``NatNetServerManager`` detects interface prims, samples poses from the stage,
 and owns a **single** server instance it can start and stop. 

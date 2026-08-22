@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Unit tests for natnet_ros2 Python helpers (no ROS install required).
 
 Stubs rclpy/launch at import time. Covers ``VisionPoseConverterNode`` quaternion

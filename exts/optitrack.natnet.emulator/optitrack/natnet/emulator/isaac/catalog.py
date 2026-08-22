@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """
 Turn a :class:`NatNetInterfaceConfig` into the server's MODELDEF catalog
 (``sDataDescriptions`` of rigid bodies). Pure Python + ctypes (the ``server``

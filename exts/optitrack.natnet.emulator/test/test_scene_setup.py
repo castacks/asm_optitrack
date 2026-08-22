@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Hermetic tests for the launch-script helper (no USD / Kit).
 
 ``build_drone_config`` is the pure half of ``scene_setup`` used by the Pegasus

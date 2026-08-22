@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Pure-Python config model for the stage-driven NatNet interface.
 
 The USD binding layer (author/read against a ``Usd.Stage``) 

@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Kit extension entry: docked editor for the NatNet interface config prim.
 
 Create/manage the ``/World/NatNetInterface`` prim. The window docks to the

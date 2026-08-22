@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Pose sampling and catalog resync against an in-memory USD stage (fake server, no sockets)."""
 
 from __future__ import annotations

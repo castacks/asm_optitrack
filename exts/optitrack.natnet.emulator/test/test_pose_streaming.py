@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Loopback: sample_once on a USD prim → NAT_FRAMEOFDATA with sampled position.
 
 Real server + UDP sockets + in-memory stage. Requires pxr.

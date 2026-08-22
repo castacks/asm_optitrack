@@ -3,10 +3,9 @@
 # by tools/validate_module.py.
 name: optitrack
 description: OptiTrack NatNet mocap integration — natnet_ros2 client + PX4 external-vision fusion bridges on the robot, and the Motive-compatible NatNet server emulator for Isaac Sim
-# TODO(governance): placeholder address — replace with the natnet_ros2 /
-# NatNet-emulator maintainer's own email before registration (RFC #379 §8).
-maintainer: maintainers@theairlab.org
-license: MIT
+# Andrew Jong (RFC #379 §8).
+maintainer: ajong@andrew.cmu.edu
+license: BSD-3-Clause-Clear
 type: ros_package                # natnet_ros2 is the colcon package; the Kit
                                  # emulator extension rides along under exts/
 airstack_compat: ">=0.19.0-alpha.18 <0.20.0"   # semver range vs trunk .env VERSION

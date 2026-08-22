@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Pose -> NatNet frame conversion (the data-enqueue path).
 
 Pure Python + ctypes. Sampled prim world poses become an 

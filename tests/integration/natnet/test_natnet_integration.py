@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """NatNet - robot autonomy integration tests.
 
 Host-side variants stream frames to ``natnet_ros2_node`` in the robot container and

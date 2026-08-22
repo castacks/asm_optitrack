@@ -10,7 +10,7 @@ setup(
     name="optitrack-natnet-emulator",
     version="0.1.0",
     description="NatNet UDP server emulator for Isaac Sim and natnet_ros2 integration",
-    license="MIT",
+    license="BSD-3-Clause-Clear",
     include_package_data=True,
     python_requires=">=3.10",
     install_requires=[

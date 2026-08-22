@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Standalone-launch helpers: stand up a drone NatNet interface on scene load.
 
 Used by the Pegasus example launch scripts so a Motive-compatible NatNet server
