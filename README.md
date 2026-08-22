@@ -7,9 +7,6 @@ NatNet client whose pose stream feeds **PX4 EKF2 external-vision fusion**
 **NatNet server emulator** for Isaac Sim so the identical robot-side stack can
 be developed and CI-tested entirely in simulation.
 
-Extracted from AirStack trunk (the OptiTrack PR series #359/#374/#375/#376)
-with git history preserved, per RFC #379 ("Modular AirStack").
-
 Data path (sim and real robot are the same from `natnet_ros2` onward):
 
 ```text
@@ -25,18 +22,18 @@ Motive (real) / in-sim NatNet emulator
 | --- | --- | --- |
 | NatNet client node | `natnet_ros2/` (C++ colcon package) | Connects to Motive/emulator via the NatNet SDK, publishes per-rigid-body pose topics from `config/natnet_config.yaml` profiles (selected by `ROBOT_NAME`) |
 | MAVROS bridges | `natnet_ros2/launch/` + converters | `vision_pose_converter`, `mavros_gp_origin`, `px4_param_setter` — turn the mocap pose into EKF2 external-vision input and set the FCU parameters |
-| NatNet server emulator | `exts/optitrack.natnet.emulator/` (Kit extension) | Motive-compatible unicast NatNet server driven by Isaac Sim prims — the main value of the OptiTrack PRs: full mocap development without hardware |
+| NatNet server emulator | `exts/optitrack.natnet.emulator/` (Kit extension) | Motive-compatible unicast NatNet server driven by Isaac Sim prims — enables full mocap development without hardware |
 | Pegasus launch scripts | `launch_scripts/one_px4_pegasus_natnet.py`, `multi_px4_pegasus_natnet.py` | Trunk's PX4 Pegasus scenes plus authored NatNet interface prims (drone body/bodies + static `Target`) |
 | Tests | `tests/integration/natnet/`, `tests/system/test_optitrack_e2e.py` | Host emulator ↔ containerized client integration; full EV-fusion flight e2e (`optitrack` mark) |
-| Test stack | `test_stack/` | CI target + living install documentation (RFC #379 §5) |
-| Docs | `docs/px4_external_vision.md`, `docs/natnet_emulator.md` | Setup + schema guides (also embedded on the trunk docs site via `module.yaml` `docs.dir`) |
+| Test stack | `test_stack/` | CI target + living install documentation |
+| Docs | `docs/px4_external_vision.md`, `docs/natnet_emulator.md` | Setup + schema guides (declared to the docs tooling via `module.yaml` `docs.dir`) |
 | Agent skill | `.agents/skills/optitrack-development/` | Workflow guide for agents working on this module |
 
 ## Install
 
 ```bash
 cd ~/AirStack
-airstack module add git@github.com:castacks/asm_optitrack.git
+airstack module add git@github.com:castacks/asm_optitrack.git --version <tag-or-sha>
 airstack module sync
 ```
 
@@ -79,7 +76,7 @@ repo copies no test infrastructure); a weekly canary tracks trunk drift.
 
 ## Maintainer / license
 
-Maintainer: Andrew Jong — <ajong@andrew.cmu.edu> (RFC #379 §8).
+Maintainer: Andrew Jong — <ajong@andrew.cmu.edu>.
 Licensed under the BSD 3-Clause Clear License (SPDX: BSD-3-Clause-Clear) —
 see `LICENSE`. The proprietary OptiTrack NatNet SDK is fetched host-side and
 is never tracked in this repo; it remains under OptiTrack's own license terms.

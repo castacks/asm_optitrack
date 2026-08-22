@@ -1,17 +1,16 @@
 # optitrack test stack
 
-This folder is the module's CI target and its living install documentation
-(RFC #379 §5): an AirStack bring-up where Isaac Sim streams Motive-compatible
+This folder is the module's CI target and its living install documentation:
+an AirStack bring-up where Isaac Sim streams Motive-compatible
 NatNet mocap from the in-sim emulator, `natnet_ros2` consumes it on the robot,
 and PX4 flies on EKF2 external-vision fusion — verified by trunk's existing
 system-test suite (`optitrack` mark, `tests/system/test_optitrack_e2e.py` in
 this repo).
 
-**Interim form (pre-stacks):** trunk reference stack folders do not exist yet,
-so `launch/stack.launch.xml` wraps trunk's monolithic `autonomy_bringup` and
-adds the module's one include (unconditional — the stack replaces trunk's
-`LAUNCH_NATNET` env toggle), and `docker-compose.yaml` is a manual compose
-override rather than a generated module layer.
+`launch/stack.launch.xml` mirrors trunk's `stacks/full_default` topology with
+the module's one `natnet_ros2` include appended (unconditional — running this
+stack IS the activation switch), and `docker-compose.yaml` adds the
+emulator-side mounts and environment.
 
 ## How to run
 
@@ -21,18 +20,18 @@ override rather than a generated module layer.
 
    ```bash
    cd ~/AirStack
-   airstack module add git@github.com:castacks/asm_optitrack.git   # or a local path
+   airstack module add git@github.com:castacks/asm_optitrack.git --version <tag-or-sha>   # or a local path
    airstack module sync
    ```
 
-2. Bring the stack up with the OptiTrack scene and PX4 external-vision
-   parameters (mirrors trunk's `overrides/isaac-optitrack-simulation.env`,
-   which stays in trunk for now):
+2. Bring the stack up with the OptiTrack scene, PX4 external-vision
+   parameters, and this folder as the selected stack:
 
    ```bash
    ISAAC_SIM_USE_STANDALONE=true \
    ISAAC_SIM_SCRIPT_NAME=modules/asm_optitrack/one_px4_pegasus_natnet.py \
-   PX4_PARAM_SET=external-vision LAUNCH_NATNET=true \
+   PX4_PARAM_SET=external-vision \
+   AIRSTACK_STACK_DIR=/root/AirStack/modules/asm_optitrack/test_stack \
      airstack up --sim isaac --robots 1 --play --wait
    ```
 
@@ -52,10 +51,11 @@ override rather than a generated module layer.
 
 ## Files
 
-- `modules.repos` — vcstool pin of this module (placeholder URL/tag until the
-  repo is pushed); top-level `airstack_compat` declares the tested trunk range.
-- `launch/stack.launch.xml` — interim flat wrapper: trunk bringup + an
-  unconditional, explicitly-wired `natnet_ros2` include (`server_ip` launch
-  arg instead of ambient env).
+- `modules.repos` — vcstool pin of this module (the `v0.1.0` tag lands with
+  the first green CI run); top-level `airstack_compat` declares the tested
+  trunk range.
+- `launch/stack.launch.xml` — stack entry mirroring trunk's `full_default`
+  topology, plus an unconditional, explicitly-wired `natnet_ros2` include
+  (`server_ip` launch arg instead of ambient env).
 - `docker-compose.yaml` — compose override adding the emulator extension
   mount, the scene selection, and the robot-side NatNet env.

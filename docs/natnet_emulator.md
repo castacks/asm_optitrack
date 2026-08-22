@@ -48,8 +48,7 @@ The easiest way to start is with the provided Pegasus launch scripts. Set
 
 ```bash
 # Single drone, NatNet emulator + PX4 flying on external vision
-# (the module's test_stack is the activation path — the old trunk
-#  overrides/isaac-optitrack-simulation.env and LAUNCH_NATNET are gone)
+# (the module's test_stack is the activation path)
 ISAAC_SIM_SCRIPT_NAME=modules/asm_optitrack/one_px4_pegasus_natnet.py \
 PX4_PARAM_SET=external-vision \
 AIRSTACK_STACK_DIR=/root/AirStack/modules/asm_optitrack/test_stack \
