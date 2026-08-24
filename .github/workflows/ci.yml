@@ -29,7 +29,7 @@ jobs:
     needs: sdk-guard
     # TODO: re-pin both refs to a release tag (e.g. @v0.19.0) once the
     # reusable workflow lands on a released trunk (RFC #379 §5).
-    uses: castacks/AirStack/.github/workflows/module-system-tests.yml@feature/rfc-modular-airstack
+    uses: castacks/AirStack/.github/workflows/module-system-tests.yml@develop
     with:
       airstack_ref: feature/rfc-modular-airstack
       marks: "build_packages or integration or liveliness or optitrack"
@@ -50,7 +50,7 @@ jobs:
   canary:
     if: github.event_name == 'schedule'
     needs: sdk-guard
-    uses: castacks/AirStack/.github/workflows/module-system-tests.yml@feature/rfc-modular-airstack
+    uses: castacks/AirStack/.github/workflows/module-system-tests.yml@develop
     with:
       # TODO(post-merge): airstack_ref: develop
       airstack_ref: feature/rfc-modular-airstack
