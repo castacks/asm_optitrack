@@ -12,6 +12,7 @@ isaac-sim image isn't built locally.
 """
 import os
 import re
+import subprocess
 import time
 from pathlib import Path
 
@@ -20,6 +21,7 @@ import pytest
 from conftest import (  # noqa: E402 — pytest adds tests/ to sys.path
     airstack_cmd,
     container_running,
+    docker_exec,
     find_container,
     get_metrics,
     get_robot_containers,
@@ -214,6 +216,62 @@ def _robot_container(stack):
         else wait_for_container(_ROBOT_PATTERN, timeout=60)
 
 
+def _pose_path_diagnostics(container: str) -> str:
+    """Bounded snapshot of every hop of the NatNet path, for failure messages.
+
+    Each probe answers one question the pose-wait timeout cannot: did the
+    stack env reach the container, does the test_stack resolve there, was the
+    C++ node built, is the natnet node actually up, what did bringup print,
+    and is the Isaac-side emulator alive. Best-effort — a dead probe reports
+    itself instead of raising.
+    """
+    def tail(text: str, n: int = 30) -> str:
+        return "\n".join((text or "").strip().splitlines()[-n:])
+
+    probes = [
+        ("container stack env", lambda: docker_exec(
+            container,
+            "printenv | grep -E 'AIRSTACK_STACK|NATNET' || echo '(none set)'",
+            timeout=15)),
+        ("stack launch dir in container", lambda: docker_exec(
+            container, 'ls -la "$AIRSTACK_STACK_DIR/launch" 2>&1', timeout=15)),
+        ("natnet_ros2_node built", lambda: docker_exec(
+            container,
+            "ls /root/AirStack/robot/ros_ws/install/natnet_ros2/lib/natnet_ros2/ 2>&1",
+            timeout=15)),
+        (f"ros2 node list (domain {_ROBOT_DOMAIN})", lambda: ros2_exec(
+            container, "timeout 10 ros2 node list",
+            domain_id=_ROBOT_DOMAIN, setup_bash=_ROBOT_SETUP_BASH, timeout=25)),
+        ("bringup tmux tail", lambda: docker_exec(
+            container, "tmux capture-pane -p -t bringup -S -100 2>&1 | tail -40",
+            timeout=15)),
+    ]
+    sections = []
+    for label, run in probes:
+        try:
+            result = run()
+            out = (result.stdout or "") + (result.stderr or "")
+        except Exception as exc:  # noqa: BLE001 — diagnostics must not mask the failure
+            out = f"probe error: {exc}"
+        sections.append(f"--- {label} ---\n{tail(out)}")
+    isaac = find_container("isaac")
+    if isaac:
+        try:
+            logs = subprocess.run(
+                ["docker", "logs", "--tail", "40", isaac],
+                capture_output=True, text=True, timeout=20,
+            )
+            sections.append(
+                "--- isaac-sim docker logs tail ---\n"
+                + tail((logs.stdout or "") + (logs.stderr or ""), 40)
+            )
+        except Exception as exc:  # noqa: BLE001
+            sections.append(f"--- isaac-sim docker logs tail ---\nprobe error: {exc}")
+    else:
+        sections.append("--- isaac-sim container ---\nNOT FOUND")
+    return "\n".join(sections)
+
+
 class TestOptitrackE2E:
 
     @pytest.mark.dependency(name="natnet_pose")
@@ -226,10 +284,12 @@ class TestOptitrackE2E:
             container, topic, domain_id=_ROBOT_DOMAIN,
             setup_bash=_ROBOT_SETUP_BASH, timeout=_FIRST_MSG_TIMEOUT,
         )
-        assert first is not None, (
-            f"no NatNet pose on {topic} within {_FIRST_MSG_TIMEOUT}s "
-            "(emulator → natnet_ros2 path down)"
-        )
+        if first is None:
+            pytest.fail(
+                f"no NatNet pose on {topic} within {_FIRST_MSG_TIMEOUT}s "
+                "(emulator → natnet_ros2 path down)\n"
+                + _pose_path_diagnostics(container)
+            )
         hz = sample_hz(container, topic, domain_id=_ROBOT_DOMAIN,
                        setup_bash=_ROBOT_SETUP_BASH, duration=5, window=20)
         get_metrics().record("test_optitrack_e2e.natnet_pose_hz",
