@@ -3,7 +3,7 @@
   Body mirrors trunk stacks/full_default/launch/stack.launch.xml (post
   AUTONOMY_ROLE removal — fully flattened) with the natnet_ros2 include
   appended. NEVER include autonomy_bringup/robot.launch.xml here (dispatcher
-  recursion). Run: AIRSTACK_STACK_DIR=/root/AirStack/modules/optitrack/test_stack
+  recursion). Run: AIRSTACK_STACK_DIR=/root/AirStack/modules/asm_optitrack/test_stack
 -->
 <launch>
 

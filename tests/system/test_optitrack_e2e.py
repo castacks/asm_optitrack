@@ -74,23 +74,14 @@ _ISAAC_SCRIPT = os.environ.get(
 # Robot-side natnet nodes come from this module's test_stack (see its header).
 # The robot container does NOT mount the repo root — the module overlay
 # (tools/module_overlay.py, generated docker-compose.modules.yaml) bind-mounts
-# this module checkout at /root/AirStack/modules/<manifest-name> in every
-# robot service, regardless of the host checkout dir (modules/asm_optitrack
-# locally, module-under-test in the reusable CI workflow). Override with
-# NATNET_STACK_DIR if the layout differs.
-import yaml  # noqa: E402
-
-_MODULE_ROOT = Path(__file__).resolve().parents[2]
-try:
-    _MODULE_MANIFEST_NAME = (
-        yaml.safe_load((_MODULE_ROOT / "module.yaml").read_text()).get("name")
-        or _MODULE_CHECKOUT_NAME
-    )
-except Exception:  # noqa: BLE001 — manifest unreadable: fall back to dir name
-    _MODULE_MANIFEST_NAME = _MODULE_CHECKOUT_NAME
+# this checkout at /root/AirStack/modules/<entry-name> in every robot service,
+# where the entry name is the checkout dir's basename (asm_optitrack locally,
+# module-under-test in the reusable CI workflow) — the same key the isaac
+# launch-script symlinks use above. Verified against a live container in
+# run 33241021596. Override with NATNET_STACK_DIR if the layout differs.
 _STACK_DIR = os.environ.get(
     "NATNET_STACK_DIR",
-    f"/root/AirStack/modules/{_MODULE_MANIFEST_NAME}/test_stack",
+    f"/root/AirStack/modules/{_MODULE_CHECKOUT_NAME}/test_stack",
 )
 
 _E2E_ENV = {

@@ -31,7 +31,7 @@ emulator-side mounts and environment.
    ISAAC_SIM_USE_STANDALONE=true \
    ISAAC_SIM_SCRIPT_NAME=modules/asm_optitrack/one_px4_pegasus_natnet.py \
    PX4_PARAM_SET=external-vision \
-   AIRSTACK_STACK_DIR=/root/AirStack/modules/optitrack/test_stack \
+   AIRSTACK_STACK_DIR=/root/AirStack/modules/asm_optitrack/test_stack \
      airstack up --sim isaac --robots 1 --play --wait
    ```
 
