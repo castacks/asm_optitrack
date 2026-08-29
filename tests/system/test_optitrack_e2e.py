@@ -72,19 +72,25 @@ _ISAAC_SCRIPT = os.environ.get(
 )
 
 # Robot-side natnet nodes come from this module's test_stack (see its header).
-# The robot container mounts the trunk checkout at /root/AirStack, so the
-# stack dir is the module checkout's trunk-relative path — modules/<name>
-# locally, module-under-test in the reusable CI workflow. Override with
+# The robot container does NOT mount the repo root — the module overlay
+# (tools/module_overlay.py, generated docker-compose.modules.yaml) bind-mounts
+# this module checkout at /root/AirStack/modules/<manifest-name> in every
+# robot service, regardless of the host checkout dir (modules/asm_optitrack
+# locally, module-under-test in the reusable CI workflow). Override with
 # NATNET_STACK_DIR if the layout differs.
-from harness.discovery import AIRSTACK_ROOT  # noqa: E402
+import yaml  # noqa: E402
 
 _MODULE_ROOT = Path(__file__).resolve().parents[2]
 try:
-    _MODULE_REL = _MODULE_ROOT.relative_to(Path(AIRSTACK_ROOT).resolve())
-except ValueError:  # checkout outside the trunk tree — assume module add layout
-    _MODULE_REL = Path("modules") / _MODULE_CHECKOUT_NAME
+    _MODULE_MANIFEST_NAME = (
+        yaml.safe_load((_MODULE_ROOT / "module.yaml").read_text()).get("name")
+        or _MODULE_CHECKOUT_NAME
+    )
+except Exception:  # noqa: BLE001 — manifest unreadable: fall back to dir name
+    _MODULE_MANIFEST_NAME = _MODULE_CHECKOUT_NAME
 _STACK_DIR = os.environ.get(
-    "NATNET_STACK_DIR", f"/root/AirStack/{_MODULE_REL}/test_stack"
+    "NATNET_STACK_DIR",
+    f"/root/AirStack/modules/{_MODULE_MANIFEST_NAME}/test_stack",
 )
 
 _E2E_ENV = {
@@ -234,7 +240,10 @@ def _pose_path_diagnostics(container: str) -> str:
             "printenv | grep -E 'AIRSTACK_STACK|NATNET' || echo '(none set)'",
             timeout=15)),
         ("stack launch dir in container", lambda: docker_exec(
-            container, 'ls -la "$AIRSTACK_STACK_DIR/launch" 2>&1', timeout=15)),
+            container,
+            'ls -la "$AIRSTACK_STACK_DIR/launch" 2>&1; '
+            "echo '-- /root/AirStack/modules:'; ls /root/AirStack/modules 2>&1",
+            timeout=15)),
         ("natnet_ros2_node built", lambda: docker_exec(
             container,
             "ls /root/AirStack/robot/ros_ws/install/natnet_ros2/lib/natnet_ros2/ 2>&1",
