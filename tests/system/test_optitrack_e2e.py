@@ -12,6 +12,7 @@ isaac-sim image isn't built locally.
 """
 import os
 import re
+import subprocess
 import time
 from pathlib import Path
 
@@ -20,6 +21,7 @@ import pytest
 from conftest import (  # noqa: E402 — pytest adds tests/ to sys.path
     airstack_cmd,
     container_running,
+    docker_exec,
     find_container,
     get_metrics,
     get_robot_containers,
@@ -42,8 +44,12 @@ from system.test_fixed_trajectory import (
 pytestmark = pytest.mark.optitrack
 
 # Single-drone NatNet Isaac stack: the natnet Pegasus script spawns the emulator
-# alongside PX4, and LAUNCH_NATNET=true brings up natnet_ros2 + the vision_pose /
-# gp_origin / param bridges on the robot.
+# alongside PX4, and this module's test_stack (the full_default mirror with the
+# natnet_ros2 include appended) brings up natnet_ros2 + the vision_pose /
+# gp_origin / param bridges on the robot. Selecting it via AIRSTACK_STACK_DIR is
+# the stack dispatch (RFC #379) — the old LAUNCH_NATNET trunk hook was removed
+# with the extraction (trunk 70423c4c) and setting it is a no-op that only
+# triggers a deprecation warning.
 #
 # PX4_PARAM_SET selects simulation/isaac-sim/docker/px4-params/external-vision.env, which
 # switches PX4 SITL's EKF2 to mocap external vision and turns GPS, baro and range aiding
@@ -65,6 +71,19 @@ _ISAAC_SCRIPT = os.environ.get(
     f"modules/{_MODULE_CHECKOUT_NAME}/one_px4_pegasus_natnet.py",
 )
 
+# Robot-side natnet nodes come from this module's test_stack (see its header).
+# The robot container does NOT mount the repo root — the module overlay
+# (tools/module_overlay.py, generated docker-compose.modules.yaml) bind-mounts
+# this checkout at /root/AirStack/modules/<entry-name> in every robot service,
+# where the entry name is the checkout dir's basename (asm_optitrack locally,
+# module-under-test in the reusable CI workflow) — the same key the isaac
+# launch-script symlinks use above. Verified against a live container in
+# run 33241021596. Override with NATNET_STACK_DIR if the layout differs.
+_STACK_DIR = os.environ.get(
+    "NATNET_STACK_DIR",
+    f"/root/AirStack/modules/{_MODULE_CHECKOUT_NAME}/test_stack",
+)
+
 _E2E_ENV = {
     "NUM_ROBOTS": "1",
     "COMPOSE_PROFILES": "desktop,isaac-sim",
@@ -72,7 +91,9 @@ _E2E_ENV = {
     "ISAAC_SIM_USE_STANDALONE": "true",
     "ISAAC_SIM_SCRIPT_NAME": _ISAAC_SCRIPT,
     "PLAY_SIM_ON_START": "true",
-    "LAUNCH_NATNET": "true",
+    # Stack dispatch: this module's test_stack = full_default + natnet_ros2.
+    "AIRSTACK_STACK_DIR": _STACK_DIR,
+    "AIRSTACK_STACK_ENTRY": "stack",
     # EKF2 external-vision (mocap) configuration — see comment above. Selects
     # simulation/isaac-sim/docker/px4-params/external-vision.env, which turns GPS, baro
     # and range aiding off, leaving mocap as the vehicle's only position source.
@@ -192,6 +213,65 @@ def _robot_container(stack):
         else wait_for_container(_ROBOT_PATTERN, timeout=60)
 
 
+def _pose_path_diagnostics(container: str) -> str:
+    """Bounded snapshot of every hop of the NatNet path, for failure messages.
+
+    Each probe answers one question the pose-wait timeout cannot: did the
+    stack env reach the container, does the test_stack resolve there, was the
+    C++ node built, is the natnet node actually up, what did bringup print,
+    and is the Isaac-side emulator alive. Best-effort — a dead probe reports
+    itself instead of raising.
+    """
+    def tail(text: str, n: int = 30) -> str:
+        return "\n".join((text or "").strip().splitlines()[-n:])
+
+    probes = [
+        ("container stack env", lambda: docker_exec(
+            container,
+            "printenv | grep -E 'AIRSTACK_STACK|NATNET' || echo '(none set)'",
+            timeout=15)),
+        ("stack launch dir in container", lambda: docker_exec(
+            container,
+            'ls -la "$AIRSTACK_STACK_DIR/launch" 2>&1; '
+            "echo '-- /root/AirStack/modules:'; ls /root/AirStack/modules 2>&1",
+            timeout=15)),
+        ("natnet_ros2_node built", lambda: docker_exec(
+            container,
+            "ls /root/AirStack/robot/ros_ws/install/natnet_ros2/lib/natnet_ros2/ 2>&1",
+            timeout=15)),
+        (f"ros2 node list (domain {_ROBOT_DOMAIN})", lambda: ros2_exec(
+            container, "timeout 10 ros2 node list",
+            domain_id=_ROBOT_DOMAIN, setup_bash=_ROBOT_SETUP_BASH, timeout=25)),
+        ("bringup tmux tail", lambda: docker_exec(
+            container, "tmux capture-pane -p -t bringup -S -100 2>&1 | tail -40",
+            timeout=15)),
+    ]
+    sections = []
+    for label, run in probes:
+        try:
+            result = run()
+            out = (result.stdout or "") + (result.stderr or "")
+        except Exception as exc:  # noqa: BLE001 — diagnostics must not mask the failure
+            out = f"probe error: {exc}"
+        sections.append(f"--- {label} ---\n{tail(out)}")
+    isaac = find_container("isaac")
+    if isaac:
+        try:
+            logs = subprocess.run(
+                ["docker", "logs", "--tail", "40", isaac],
+                capture_output=True, text=True, timeout=20,
+            )
+            sections.append(
+                "--- isaac-sim docker logs tail ---\n"
+                + tail((logs.stdout or "") + (logs.stderr or ""), 40)
+            )
+        except Exception as exc:  # noqa: BLE001
+            sections.append(f"--- isaac-sim docker logs tail ---\nprobe error: {exc}")
+    else:
+        sections.append("--- isaac-sim container ---\nNOT FOUND")
+    return "\n".join(sections)
+
+
 class TestOptitrackE2E:
 
     @pytest.mark.dependency(name="natnet_pose")
@@ -204,10 +284,12 @@ class TestOptitrackE2E:
             container, topic, domain_id=_ROBOT_DOMAIN,
             setup_bash=_ROBOT_SETUP_BASH, timeout=_FIRST_MSG_TIMEOUT,
         )
-        assert first is not None, (
-            f"no NatNet pose on {topic} within {_FIRST_MSG_TIMEOUT}s "
-            "(emulator → natnet_ros2 path down)"
-        )
+        if first is None:
+            pytest.fail(
+                f"no NatNet pose on {topic} within {_FIRST_MSG_TIMEOUT}s "
+                "(emulator → natnet_ros2 path down)\n"
+                + _pose_path_diagnostics(container)
+            )
         hz = sample_hz(container, topic, domain_id=_ROBOT_DOMAIN,
                        setup_bash=_ROBOT_SETUP_BASH, duration=5, window=20)
         get_metrics().record("test_optitrack_e2e.natnet_pose_hz",
