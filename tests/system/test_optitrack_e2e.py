@@ -42,8 +42,12 @@ from system.test_fixed_trajectory import (
 pytestmark = pytest.mark.optitrack
 
 # Single-drone NatNet Isaac stack: the natnet Pegasus script spawns the emulator
-# alongside PX4, and LAUNCH_NATNET=true brings up natnet_ros2 + the vision_pose /
-# gp_origin / param bridges on the robot.
+# alongside PX4, and this module's test_stack (the full_default mirror with the
+# natnet_ros2 include appended) brings up natnet_ros2 + the vision_pose /
+# gp_origin / param bridges on the robot. Selecting it via AIRSTACK_STACK_DIR is
+# the stack dispatch (RFC #379) — the old LAUNCH_NATNET trunk hook was removed
+# with the extraction (trunk 70423c4c) and setting it is a no-op that only
+# triggers a deprecation warning.
 #
 # PX4_PARAM_SET selects simulation/isaac-sim/docker/px4-params/external-vision.env, which
 # switches PX4 SITL's EKF2 to mocap external vision and turns GPS, baro and range aiding
@@ -65,6 +69,22 @@ _ISAAC_SCRIPT = os.environ.get(
     f"modules/{_MODULE_CHECKOUT_NAME}/one_px4_pegasus_natnet.py",
 )
 
+# Robot-side natnet nodes come from this module's test_stack (see its header).
+# The robot container mounts the trunk checkout at /root/AirStack, so the
+# stack dir is the module checkout's trunk-relative path — modules/<name>
+# locally, module-under-test in the reusable CI workflow. Override with
+# NATNET_STACK_DIR if the layout differs.
+from harness.discovery import AIRSTACK_ROOT  # noqa: E402
+
+_MODULE_ROOT = Path(__file__).resolve().parents[2]
+try:
+    _MODULE_REL = _MODULE_ROOT.relative_to(Path(AIRSTACK_ROOT).resolve())
+except ValueError:  # checkout outside the trunk tree — assume module add layout
+    _MODULE_REL = Path("modules") / _MODULE_CHECKOUT_NAME
+_STACK_DIR = os.environ.get(
+    "NATNET_STACK_DIR", f"/root/AirStack/{_MODULE_REL}/test_stack"
+)
+
 _E2E_ENV = {
     "NUM_ROBOTS": "1",
     "COMPOSE_PROFILES": "desktop,isaac-sim",
@@ -72,7 +92,9 @@ _E2E_ENV = {
     "ISAAC_SIM_USE_STANDALONE": "true",
     "ISAAC_SIM_SCRIPT_NAME": _ISAAC_SCRIPT,
     "PLAY_SIM_ON_START": "true",
-    "LAUNCH_NATNET": "true",
+    # Stack dispatch: this module's test_stack = full_default + natnet_ros2.
+    "AIRSTACK_STACK_DIR": _STACK_DIR,
+    "AIRSTACK_STACK_ENTRY": "stack",
     # EKF2 external-vision (mocap) configuration — see comment above. Selects
     # simulation/isaac-sim/docker/px4-params/external-vision.env, which turns GPS, baro
     # and range aiding off, leaving mocap as the vehicle's only position source.
