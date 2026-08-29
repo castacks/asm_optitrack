@@ -27,11 +27,11 @@ jobs:
   system-tests:
     if: github.event_name != 'schedule'
     needs: sdk-guard
-    # TODO: re-pin both refs to a release tag (e.g. @v0.19.0) once the
-    # reusable workflow lands on a released trunk (RFC #379 §5).
+    # The modular campaign merged: both refs track trunk develop. TODO: re-pin
+    # both to a release tag (e.g. @v0.20.0) once one exists (RFC #379 §5).
     uses: castacks/AirStack/.github/workflows/module-system-tests.yml@develop
     with:
-      airstack_ref: feature/rfc-modular-airstack
+      airstack_ref: develop
       marks: "build_packages or integration or liveliness or optitrack"
       sim: isaacsim
       module_tests_dir: tests
@@ -43,17 +43,13 @@ jobs:
     secrets: inherit
 
   # Weekly canary: same suite against trunk develop, so breakage from trunk
-  # surfaces the week it lands. TODO-until-merge: develop does not carry the
-  # module CLI / reusable workflow yet — this job is a stub that must stay
-  # pointed at the feature branch until the RFC #379 tooling merges to
-  # develop; flip airstack_ref (and the @ref) to develop then.
+  # surfaces the week it lands.
   canary:
     if: github.event_name == 'schedule'
     needs: sdk-guard
     uses: castacks/AirStack/.github/workflows/module-system-tests.yml@develop
     with:
-      # TODO(post-merge): airstack_ref: develop
-      airstack_ref: feature/rfc-modular-airstack
+      airstack_ref: develop
       marks: "build_packages or integration or liveliness or optitrack"
       sim: isaacsim
       module_tests_dir: tests
